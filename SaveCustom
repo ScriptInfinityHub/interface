@@ -1,0 +1,53 @@
+local httpService = game:GetService("HttpService")
+
+local SaveManager = {} do
+    -- Folder to save settings
+    SaveManager.Folder = "FluentSettings"
+
+    -- Function to save settings
+    function SaveManager:SaveSettings(settings)
+        -- Create a table to store the current settings
+        local saveData = {
+            Theme = settings.Theme,                -- Save the name of the current theme
+            Acrylic = settings.Acrylic,            -- Save Acrylic setting
+            Transparency = settings.Transparency,  -- Save Transparency setting
+            MenuKeybind = settings.MenuKeybind     -- Save the keybind for menu minimization
+        }
+
+        -- Encode the settings as JSON and save to file
+        local jsonData = httpService:JSONEncode(saveData)
+        writefile(self.Folder .. "/settings.json", jsonData)
+    end
+
+    -- Function to load settings
+    function SaveManager:LoadSettings()
+        -- Default settings in case no file exists
+        local settings = {
+            Theme = "Dark",          -- Default to Dark theme
+            Acrylic = true,          -- Default Acrylic setting
+            Transparency = true,     -- Default Transparency setting
+            MenuKeybind = "LeftControl"
+        }
+
+        -- Check if the settings file exists
+        local path = self.Folder .. "/settings.json"
+        if isfile(path) then
+            -- Read and decode the saved data
+            local data = readfile(path)
+            local success, decoded = pcall(httpService.JSONDecode, httpService, data)
+
+            if success then
+                -- Update settings with saved values, using defaults where necessary
+                settings.Theme = decoded.Theme or settings.Theme
+                settings.Acrylic = decoded.Acrylic or settings.Acrylic
+                settings.Transparency = decoded.Transparency or settings.Transparency
+                settings.MenuKeybind = decoded.MenuKeybind or settings.MenuKeybind
+            end
+        end
+
+        -- Return the loaded settings
+        return settings
+    end
+end
+
+return SaveManager
