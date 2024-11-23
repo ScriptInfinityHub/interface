@@ -1,0 +1,127 @@
+local httpService = game:GetService("HttpService")
+
+local InterfaceManager = {} do
+    InterfaceManager.Folder = "FluentSettings"
+    InterfaceManager.Settings = {
+        Theme = "Dark",
+        Acrylic = true,
+        Transparency = true,
+        MenuKeybind = "LeftControl"
+    }
+
+    function InterfaceManager:SetFolder(folder)
+        self.Folder = folder;
+        self:BuildFolderTree()
+    end
+
+    function InterfaceManager:SetLibrary(library)
+        self.Library = library
+    end
+
+    function InterfaceManager:BuildFolderTree()
+        local paths = {}
+
+        local parts = self.Folder:split("/")
+        for idx = 1, #parts do
+            paths[#paths + 1] = table.concat(parts, "/", 1, idx)
+        end
+
+        table.insert(paths, self.Folder)
+        table.insert(paths, self.Folder .. "/settings")
+
+        for i = 1, #paths do
+            local str = paths[i]
+            if not isfolder(str) then
+                makefolder(str)
+            end
+        end
+    end
+
+    function InterfaceManager:SaveSettings()
+        writefile(self.Folder .. "/options.json", httpService:JSONEncode(InterfaceManager.Settings))
+    end
+
+    function InterfaceManager:LoadSettings()
+        local path = self.Folder .. "/options.json"
+        if isfile(path) then
+            local data = readfile(path)
+            local success, decoded = pcall(httpService.JSONDecode, httpService, data)
+
+            if success then
+                for i, v in next, decoded do
+                    InterfaceManager.Settings[i] = v
+                end
+            end
+        end
+    end
+
+    function InterfaceManager:AddCustomTheme(themeName, themeValues)
+        -- ตรวจสอบว่า theme นี้มีอยู่แล้วหรือไม่
+        if not table.find(self.Library.Themes, themeName) then
+            table.insert(self.Library.Themes, themeName)  -- เพิ่มธีมใหม่ในรายการธีม
+        end
+
+        -- ใช้ธีมที่กำหนดเอง
+        self.Library:SetTheme(themeName, themeValues)
+    end
+
+    function InterfaceManager:BuildInterfaceSection(tab)
+        assert(self.Library, "ต้องตั้งค่า InterfaceManager.Library")
+        local Library = self.Library
+        local Settings = InterfaceManager.Settings
+
+        InterfaceManager:LoadSettings()
+
+        local section = tab:AddSection("Interface")
+
+        local InterfaceTheme = section:AddDropdown("InterfaceTheme", {
+            Title = "Theme",
+            Description = "เลือกธีมสำหรับอินเตอร์เฟซ",
+            Values = Library.Themes,  -- ตอนนี้จะรวมธีมที่กำหนดเองด้วย
+            Default = Settings.Theme,
+            Callback = function(Value)
+                Library:SetTheme(Value)  -- ใช้ธีมที่เลือก
+                Settings.Theme = Value
+                InterfaceManager:SaveSettings()
+            end
+        })
+
+        -- ตั้งค่าธีมเริ่มต้นเมื่อโหลด
+        InterfaceTheme:SetValue(Settings.Theme)
+
+        -- เพิ่มตัวเลือกอื่นๆ เช่น Acrylic และ Transparency
+        if Library.UseAcrylic then
+            section:AddToggle("AcrylicToggle", {
+                Title = "Acrylic",
+                Description = "พื้นหลังเบลอที่ต้องการคุณภาพกราฟิก 8+",
+                Default = Settings.Acrylic,
+                Callback = function(Value)
+                    Library:ToggleAcrylic(Value)
+                    Settings.Acrylic = Value
+                    InterfaceManager:SaveSettings()
+                end
+            })
+        end
+
+        section:AddToggle("TransparentToggle", {
+            Title = "Transparency",
+            Description = "ทำให้อินเตอร์เฟซโปร่งใส",
+            Default = Settings.Transparency,
+            Callback = function(Value)
+                Library:ToggleTransparency(Value)
+                Settings.Transparency = Value
+                InterfaceManager:SaveSettings()
+            end
+        })
+
+        -- การกดปุ่มลัดสำหรับลดขนาด
+        local MenuKeybind = section:AddKeybind("MenuKeybind", { Title = "Minimize Bind", Default = Settings.MenuKeybind })
+        MenuKeybind:OnChanged(function()
+            Settings.MenuKeybind = MenuKeybind.Value
+            InterfaceManager:SaveSettings()
+        end)
+        Library.MinimizeKeybind = MenuKeybind
+    end
+end
+
+return InterfaceManager
